@@ -2,7 +2,7 @@
 
 ## User Registration Endpoint
 
-### POST `/user/register`
+### POST `/users/register`
 
 Creates a new user account in the system.
 
@@ -37,7 +37,7 @@ The endpoint expects a JSON object with the following structure:
 #### Example Request
 
 ```json
-POST /user/register
+POST /users/register
 Content-Type: application/json
 
 {
@@ -112,7 +112,7 @@ When validation fails:
 
 ## User Login Endpoint
 
-### POST `/user/login`
+### POST `/users/login`
 
 Authenticates an existing user and returns a JWT token.
 
@@ -141,7 +141,7 @@ The endpoint expects a JSON object with the following structure:
 #### Example Request
 
 ```json
-POST /user/login
+POST /users/login
 Content-Type: application/json
 
 {
@@ -221,3 +221,196 @@ When credentials are incorrect:
 - A new JWT token is generated for each successful login
 - The token should be stored by the client and included in subsequent requests for authentication
 - For security reasons, the error message doesn't specify whether the email or password was incorrect
+
+---
+
+## User Profile Endpoint
+
+### GET `/users/profile`
+
+Retrieves the authenticated user's profile information.
+
+#### Description
+
+This is a protected endpoint that returns the profile information of the currently authenticated user. The user must provide a valid JWT token to access this endpoint.
+
+#### Authentication Required
+
+This endpoint requires authentication. Include the JWT token in one of the following ways:
+
+1. **Cookie**: `token=<JWT_TOKEN>`
+2. **Authorization Header**: `Authorization: Bearer <JWT_TOKEN>`
+
+#### Request Headers
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+OR
+
+```
+Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### Example Request
+
+```http
+GET /users/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzBhMTIzNDU2Nzg5MGFiY2RlZjEyMzQiLCJpYXQiOjE3MjkwMDAwMDB9.xYz123AbC456DeF789GhI012JkL345MnO678PqR901StU
+```
+
+#### Response
+
+##### Success Response (200 OK)
+
+```json
+{
+  "_id": "670a12345678990abcdef1234",
+  "fullname": {
+    "firstname": "John",
+    "lastname": "Doe"
+  },
+  "email": "john.doe@example.com",
+  "socketId": null,
+  "__v": 0
+}
+```
+
+**Response Fields:**
+
+- `_id`: MongoDB ObjectId of the user
+- `fullname`: Object containing user's first and last name
+- `email`: User's email address
+- `socketId`: Socket ID for real-time communication (null if not connected)
+- `__v`: MongoDB version key
+
+##### Error Response (401 Unauthorized)
+
+When no token is provided:
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+When token is invalid:
+
+```json
+{
+  "message": "Access denied. Invalid token."
+}
+```
+
+When token is blacklisted:
+
+```json
+{
+  "message": "Access denied. Token is blacklisted."
+}
+```
+
+#### Status Codes
+
+| Status Code                 | Description                                   |
+| --------------------------- | --------------------------------------------- |
+| `200 OK`                    | Profile retrieved successfully                |
+| `401 Unauthorized`          | No token, invalid token, or blacklisted token |
+| `500 Internal Server Error` | Server error during profile retrieval         |
+
+#### Notes
+
+- The token must be valid and not blacklisted
+- The user information is retrieved from the decoded JWT token
+- Password field is not included in the response for security
+
+---
+
+## User Logout Endpoint
+
+### GET `/users/logout`
+
+Logs out the authenticated user by blacklisting their JWT token.
+
+#### Description
+
+This is a protected endpoint that logs out the currently authenticated user. It blacklists the user's JWT token, preventing it from being used for future requests. The token is stored in a blacklist collection with a TTL (Time To Live) of 24 hours.
+
+#### Authentication Required
+
+This endpoint requires authentication. Include the JWT token in one of the following ways:
+
+1. **Cookie**: `token=<JWT_TOKEN>`
+2. **Authorization Header**: `Authorization: Bearer <JWT_TOKEN>`
+
+#### Request Headers
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+OR
+
+```
+Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### Example Request
+
+```http
+GET /users/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzBhMTIzNDU2Nzg5MGFiY2RlZjEyMzQiLCJpYXQiOjE3MjkwMDAwMDB9.xYz123AbC456DeF789GhI012JkL345MnO678PqR901StU
+```
+
+#### Response
+
+##### Success Response (200 OK)
+
+```json
+{
+  "message": "User logged out successfully"
+}
+```
+
+##### Error Response (401 Unauthorized)
+
+When no token is provided:
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+When token is invalid:
+
+```json
+{
+  "message": "Access denied. Invalid token."
+}
+```
+
+When token is already blacklisted:
+
+```json
+{
+  "message": "Access denied. Token is blacklisted."
+}
+```
+
+#### Status Codes
+
+| Status Code                 | Description                                   |
+| --------------------------- | --------------------------------------------- |
+| `200 OK`                    | User logged out successfully                  |
+| `401 Unauthorized`          | No token, invalid token, or blacklisted token |
+| `500 Internal Server Error` | Server error during logout process            |
+
+#### Notes
+
+- The JWT token is added to a blacklist collection in MongoDB
+- The token cookie is cleared from the client
+- Blacklisted tokens are automatically removed from the database after 24 hours using MongoDB TTL index
+- Once logged out, the same token cannot be used again for authentication
+- The user will need to login again to get a new token
