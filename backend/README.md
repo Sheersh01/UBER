@@ -583,3 +583,370 @@ When server error occurs:
 - The captain's initial location is set to coordinates (0, 0)
 - The token should be stored by the client and included in subsequent requests for authentication
 - Vehicle types are restricted to: "car", "motorcycle", or "auto"
+
+---
+
+## Captain Login Endpoint
+
+### POST `/captains/login`
+
+Authenticates an existing captain and returns a JWT token.
+
+#### Description
+
+This endpoint allows registered captains to log in by providing their email and password. The endpoint validates the credentials against the stored captain data and returns a JWT authentication token upon successful login.
+
+#### Request Body
+
+The endpoint expects a JSON object with the following structure:
+
+```json
+{
+  "email": "string",
+  "password": "string"
+}
+```
+
+#### Field Requirements
+
+| Field      | Type   | Required | Validation                   |
+| ---------- | ------ | -------- | ---------------------------- |
+| `email`    | String | Yes      | Must be a valid email format |
+| `password` | String | Yes      | Minimum 6 characters         |
+
+#### Example Request
+
+```json
+POST /captains/login
+Content-Type: application/json
+
+{
+  "email": "jane.smith@example.com",
+  "password": "securePassword123"
+}
+```
+
+#### Response
+
+##### Success Response (200 OK)
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzBhMTIzNDU2Nzg5MGFiY2RlZjEyMzQiLCJpYXQiOjE3MjkwMDAwMDAsImV4cCI6MTcyOTA4NjQwMH0.xYz123AbC456DeF789GhI012JkL345MnO678PqR901StU",
+  "captain": {
+    "_id": "670a12345678990abcdef1234",
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Smith"
+    },
+    "email": "jane.smith@example.com",
+    "status": "inactive",
+    "vehicle": {
+      "color": "Black",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car"
+    },
+    "location": {
+      "lat": 0,
+      "lng": 0
+    },
+    "socketId": null,
+    "__v": 0
+  }
+}
+```
+
+**Response Fields:**
+
+- `token`: JWT authentication token valid for 24 hours
+- `captain._id`: MongoDB ObjectId of the authenticated captain
+- `captain.fullname`: Object containing captain's first and last name
+- `captain.email`: Captain's email address
+- `captain.status`: Captain's current status ("active" or "inactive")
+- `captain.vehicle`: Object containing vehicle details
+- `captain.location`: Current location coordinates
+- `captain.socketId`: Socket ID for real-time communication (null if not connected)
+- `captain.__v`: MongoDB version key
+
+##### Error Response (400 Bad Request)
+
+When validation fails:
+
+```json
+{
+  "errors": [
+    {
+      "msg": "Please provide a valid email",
+      "param": "email",
+      "location": "body"
+    }
+  ]
+}
+```
+
+When credentials are incorrect:
+
+```json
+{
+  "error": "Invalid email or password"
+}
+```
+
+##### Error Response (500 Internal Server Error)
+
+When server error occurs:
+
+```json
+{
+  "error": "Error message details"
+}
+```
+
+#### Status Codes
+
+| Status Code                 | Description                                |
+| --------------------------- | ------------------------------------------ |
+| `200 OK`                    | Captain successfully authenticated         |
+| `400 Bad Request`           | Validation error or invalid email/password |
+| `500 Internal Server Error` | Server error during authentication process |
+
+#### Notes
+
+- The password is compared with the stored hashed password using bcrypt
+- The captain document is queried with password field included (normally excluded by default)
+- A new JWT token with 24-hour expiration is generated for each successful login
+- The token is set as an HTTP cookie and also returned in the response body
+- The token should be stored by the client and included in subsequent requests for authentication
+- For security reasons, the error message doesn't specify whether the email or password was incorrect
+- Email lookup is case-insensitive
+
+---
+
+## Captain Profile Endpoint
+
+### GET `/captains/profile`
+
+Retrieves the authenticated captain's profile information.
+
+#### Description
+
+This is a protected endpoint that returns the profile information of the currently authenticated captain. The captain must provide a valid JWT token to access this endpoint.
+
+#### Authentication Required
+
+This endpoint requires authentication. Include the JWT token in one of the following ways:
+
+1. **Cookie**: `token=<JWT_TOKEN>`
+2. **Authorization Header**: `Authorization: Bearer <JWT_TOKEN>`
+
+#### Request Headers
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+OR
+
+```
+Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### Example Request
+
+```http
+GET /captains/profile
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzBhMTIzNDU2Nzg5MGFiY2RlZjEyMzQiLCJpYXQiOjE3MjkwMDAwMDAsImV4cCI6MTcyOTA4NjQwMH0.xYz123AbC456DeF789GhI012JkL345MnO678PqR901StU
+```
+
+#### Response
+
+##### Success Response (200 OK)
+
+```json
+{
+  "captain": {
+    "_id": "670a12345678990abcdef1234",
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Smith"
+    },
+    "email": "jane.smith@example.com",
+    "status": "inactive",
+    "vehicle": {
+      "color": "Black",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car"
+    },
+    "location": {
+      "lat": 0,
+      "lng": 0
+    },
+    "socketId": null,
+    "__v": 0
+  }
+}
+```
+
+**Response Fields:**
+
+- `captain._id`: MongoDB ObjectId of the captain
+- `captain.fullname`: Object containing captain's first and last name
+- `captain.email`: Captain's email address
+- `captain.status`: Captain's current status ("active" or "inactive")
+- `captain.vehicle`: Object containing vehicle details
+  - `color`: Vehicle color
+  - `plate`: Vehicle license plate
+  - `capacity`: Number of passengers the vehicle can accommodate
+  - `vehicleType`: Type of vehicle ("car", "motorcycle", or "auto")
+- `captain.location`: Current location coordinates
+  - `lat`: Latitude
+  - `lng`: Longitude
+- `captain.socketId`: Socket ID for real-time communication (null if not connected)
+- `captain.__v`: MongoDB version key
+
+##### Error Response (401 Unauthorized)
+
+When no token is provided:
+
+```json
+{
+  "message": "Access denied. No token provided."
+}
+```
+
+When token is invalid:
+
+```json
+{
+  "message": "Access denied. Invalid token."
+}
+```
+
+When token is blacklisted:
+
+```json
+{
+  "message": "Access denied. Token is blacklisted."
+}
+```
+
+#### Status Codes
+
+| Status Code                 | Description                                   |
+| --------------------------- | --------------------------------------------- |
+| `200 OK`                    | Profile retrieved successfully                |
+| `401 Unauthorized`          | No token, invalid token, or blacklisted token |
+| `500 Internal Server Error` | Server error during profile retrieval         |
+
+#### Notes
+
+- The token must be valid and not blacklisted
+- The captain information is retrieved from the decoded JWT token
+- Password field is not included in the response for security
+- Token expires after 24 hours from issuance
+
+---
+
+## Captain Logout Endpoint
+
+### GET `/captains/logout`
+
+Logs out the authenticated captain by blacklisting their JWT token.
+
+#### Description
+
+This is a protected endpoint that logs out the currently authenticated captain. It blacklists the captain's JWT token, preventing it from being used for future requests. The token is stored in a blacklist collection with a TTL (Time To Live) of 24 hours.
+
+#### Authentication Required
+
+This endpoint requires authentication. Include the JWT token in one of the following ways:
+
+1. **Cookie**: `token=<JWT_TOKEN>`
+2. **Authorization Header**: `Authorization: Bearer <JWT_TOKEN>`
+
+#### Request Headers
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+OR
+
+```
+Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+#### Example Request
+
+```http
+GET /captains/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzBhMTIzNDU2Nzg5MGFiY2RlZjEyMzQiLCJpYXQiOjE3MjkwMDAwMDAsImV4cCI6MTcyOTA4NjQwMH0.xYz123AbC456DeF789GhI012JkL345MnO678PqR901StU
+```
+
+#### Response
+
+##### Success Response (200 OK)
+
+```json
+{
+  "message": "Logged out successfully"
+}
+```
+
+##### Error Response (400 Bad Request)
+
+When no token is provided:
+
+```json
+{
+  "error": "No token provided"
+}
+```
+
+##### Error Response (401 Unauthorized)
+
+When token is invalid:
+
+```json
+{
+  "message": "Access denied. Invalid token."
+}
+```
+
+When token is already blacklisted:
+
+```json
+{
+  "message": "Access denied. Token is blacklisted."
+}
+```
+
+##### Error Response (500 Internal Server Error)
+
+When server error occurs:
+
+```json
+{
+  "error": "Error message details"
+}
+```
+
+#### Status Codes
+
+| Status Code                 | Description                        |
+| --------------------------- | ---------------------------------- |
+| `200 OK`                    | Captain logged out successfully    |
+| `400 Bad Request`           | No token provided                  |
+| `401 Unauthorized`          | Invalid token or blacklisted token |
+| `500 Internal Server Error` | Server error during logout process |
+
+#### Notes
+
+- The JWT token is added to a blacklist collection in MongoDB
+- The token cookie is cleared from the client
+- Blacklisted tokens are automatically removed from the database after 24 hours using MongoDB TTL index
+- Once logged out, the same token cannot be used again for authentication
+- The captain will need to login again to get a new token
+- Both cookie and authorization header tokens are checked and blacklisted
