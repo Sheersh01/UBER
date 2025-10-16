@@ -414,3 +414,172 @@ When token is already blacklisted:
 - Blacklisted tokens are automatically removed from the database after 24 hours using MongoDB TTL index
 - Once logged out, the same token cannot be used again for authentication
 - The user will need to login again to get a new token
+
+---
+
+## Captain Registration Endpoint
+
+### POST `/captains/register`
+
+Creates a new captain account in the system.
+
+#### Description
+
+This endpoint allows new captains (drivers) to register by providing their full name, email, password, and vehicle information. The password is automatically hashed before being stored in the database. Upon successful registration, the captain receives a JWT authentication token that expires in 24 hours.
+
+#### Request Body
+
+The endpoint expects a JSON object with the following structure:
+
+```json
+{
+  "fullname": {
+    "firstname": "string",
+    "lastname": "string"
+  },
+  "email": "string",
+  "password": "string",
+  "vehicle": {
+    "color": "string",
+    "plate": "string",
+    "capacity": number,
+    "vehicleType": "string"
+  }
+}
+```
+
+#### Field Requirements
+
+| Field                 | Type   | Required | Validation                                     |
+| --------------------- | ------ | -------- | ---------------------------------------------- |
+| `fullname.firstname`  | String | Yes      | Minimum 3 characters                           |
+| `fullname.lastname`   | String | Yes      | Minimum 3 characters                           |
+| `email`               | String | Yes      | Must be a valid email format                   |
+| `password`            | String | Yes      | Minimum 6 characters                           |
+| `vehicle.color`       | String | Yes      | Minimum 3 characters                           |
+| `vehicle.plate`       | String | Yes      | Minimum 3 characters, must be unique           |
+| `vehicle.capacity`    | Number | Yes      | Minimum value of 1                             |
+| `vehicle.vehicleType` | String | Yes      | Must be one of: "car", "motorcycle", or "auto" |
+
+#### Example Request
+
+```json
+POST /captains/register
+Content-Type: application/json
+
+{
+  "fullname": {
+    "firstname": "Jane",
+    "lastname": "Smith"
+  },
+  "email": "jane.smith@example.com",
+  "password": "securePassword123",
+  "vehicle": {
+    "color": "Black",
+    "plate": "ABC123",
+    "capacity": 4,
+    "vehicleType": "car"
+  }
+}
+```
+
+#### Response
+
+##### Success Response (201 Created)
+
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJfaWQiOiI2NzBhMTIzNDU2Nzg5MGFiY2RlZjEyMzQiLCJpYXQiOjE3MjkwMDAwMDAsImV4cCI6MTcyOTA4NjQwMH0.xYz123AbC456DeF789GhI012JkL345MnO678PqR901StU",
+  "captain": {
+    "_id": "670a12345678990abcdef1234",
+    "fullname": {
+      "firstname": "Jane",
+      "lastname": "Smith"
+    },
+    "email": "jane.smith@example.com",
+    "status": "inactive",
+    "vehicle": {
+      "color": "Black",
+      "plate": "ABC123",
+      "capacity": 4,
+      "vehicleType": "car"
+    },
+    "location": {
+      "lat": 0,
+      "lng": 0
+    },
+    "__v": 0
+  }
+}
+```
+
+**Response Fields:**
+
+- `token`: JWT authentication token valid for 24 hours
+- `captain._id`: MongoDB ObjectId of the newly created captain
+- `captain.fullname`: Object containing captain's first and last name
+- `captain.email`: Registered email address (stored in lowercase)
+- `captain.status`: Captain's current status ("active" or "inactive", defaults to "inactive")
+- `captain.vehicle`: Object containing vehicle details
+  - `color`: Vehicle color
+  - `plate`: Vehicle license plate (must be unique)
+  - `capacity`: Number of passengers the vehicle can accommodate
+  - `vehicleType`: Type of vehicle ("car", "motorcycle", or "auto")
+- `captain.location`: Current location coordinates (defaults to 0, 0)
+  - `lat`: Latitude
+  - `lng`: Longitude
+- `captain.__v`: MongoDB version key
+
+##### Error Response (400 Bad Request)
+
+When validation fails:
+
+```json
+{
+  "errors": [
+    {
+      "msg": "First name must be at least 3 characters long",
+      "param": "fullname.firstname",
+      "location": "body"
+    }
+  ]
+}
+```
+
+When captain already exists:
+
+```json
+{
+  "error": "Captain with this email already exists"
+}
+```
+
+##### Error Response (500 Internal Server Error)
+
+When server error occurs:
+
+```json
+{
+  "error": "Error message details"
+}
+```
+
+#### Status Codes
+
+| Status Code                 | Description                                |
+| --------------------------- | ------------------------------------------ |
+| `201 Created`               | Captain successfully registered            |
+| `400 Bad Request`           | Validation error or captain already exists |
+| `500 Internal Server Error` | Server error during registration process   |
+
+#### Notes
+
+- The password is hashed using bcrypt with a salt rounds of 10 before storage
+- Email addresses are automatically converted to lowercase
+- Email addresses must be unique in the system
+- Vehicle plate numbers must be unique in the system
+- A JWT token with 24-hour expiration is generated upon successful registration
+- The captain's initial status is set to "inactive"
+- The captain's initial location is set to coordinates (0, 0)
+- The token should be stored by the client and included in subsequent requests for authentication
+- Vehicle types are restricted to: "car", "motorcycle", or "auto"
