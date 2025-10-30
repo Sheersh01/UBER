@@ -12,7 +12,7 @@ const UserContext = ({ children }) => {
   });
 
   return (
-    <UserDataContext.Provider value={user}>
+      <UserDataContext.Provider value={{ user, setuser }}>
       <div>{children}</div>
     </UserDataContext.Provider>
   );

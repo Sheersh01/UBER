@@ -1,5 +1,7 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useContext } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import axios from 'axios'
+import { UserDataContext } from '../context/UserContext'
 
 const UserSignup = () => {
   const [firstName, setfirstName] = useState("");
@@ -8,17 +10,31 @@ const UserSignup = () => {
   const [password, setpassword] = useState("");
 
   const [userData, setuserData] = useState({});
+  const navigate = useNavigate()
 
-  const onSubmitHandler = (e) => {
+  const { user, setuser } = useContext(UserDataContext)
+
+  const onSubmitHandler = async (e) => {
     e.preventDefault();
-    setuserData({
-      fullName: {
-        firstName: firstName,
-        lastName: lastName,
+    const newUser = ({
+      fullname: {
+        firstname: firstName,
+        lastname: lastName,
       },
       email: email,
       password: password,
     });
+
+    const response = await axios.post(`${import.meta.env.VITE_BASE_URL}/users/register`, newUser)
+
+    if (response.status == 201) {
+      const data = response.data
+      setuser(data.user)
+          localStorage.setItem("token", data.token);
+
+      navigate('/home')
+    }
+
     setfirstName("");
     setlastName("");
     setemail("");
@@ -28,11 +44,11 @@ const UserSignup = () => {
   return (
     <div className="p-7 h-screen flex flex-col justify-between ">
       <div>
-      <img
-        className="w-16 mb-10"
-        src="https://upload.wikimedia.org/wikipedia/commons/5/58/Uber_logo_2018.svg"
-        alt=""
-      />
+        <img
+          className="w-16 mb-10"
+          src="https://upload.wikimedia.org/wikipedia/commons/5/58/Uber_logo_2018.svg"
+          alt=""
+        />
         <form onSubmit={(e) => onSubmitHandler(e)} action="">
           <h3 className="text-xl mb-2">Whats's your name</h3>
           <div className="flex gap-4 ">
@@ -75,7 +91,7 @@ const UserSignup = () => {
           />
 
           <button className="bg-[#111] text-white font-medium mb-1 rounded px-4 py-2 border-none w-full text-lg placeholder:text-base">
-            Login
+            Create Account
           </button>
         </form>
         <p className="">
